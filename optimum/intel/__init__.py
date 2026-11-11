@@ -60,6 +60,7 @@ _import_structure = {
         "OVModelForAudioClassification",
         "OVModelForAudioFrameClassification",
         "OVModelForAudioXVector",
+        "OVBagelForConditionalGeneration",
         "OVModelForCausalLM",
         "OVModelForCTC",
         "OVModelForCustomTasks",
@@ -209,6 +210,7 @@ else:
 if TYPE_CHECKING:
     from .openvino import (
         OVAssistantForCausalLM,
+        OVBagelForConditionalGeneration,
         OVConfig,
         OVModelForAudioClassification,
         OVModelForAudioFrameClassification,

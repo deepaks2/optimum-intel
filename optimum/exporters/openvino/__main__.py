@@ -46,6 +46,7 @@ from optimum.intel.utils.modeling_utils import (
     _OpenClipForZeroShotImageClassification,
     _Qwen3TTSForTextToSpeech,
 )
+from optimum.intel.utils.bagel import is_bagel_model, register_bagel_config
 
 from .utils import (
     _MAX_UNCOMPRESSED_SIZE,
@@ -78,6 +79,8 @@ logger = logging.getLogger(__name__)
 # init core before import openvino tokenizers to prevent failed attempt loading extension
 core = Core()
 
+register_bagel_config()
+
 
 def infer_task(
     task,
@@ -91,6 +94,14 @@ def infer_task(
 ):
     original_task = task
     task = TasksManager.map_from_synonym(task)
+    if task == "auto" and is_bagel_model(
+        model_name_or_path,
+        cache_dir=cache_dir,
+        revision=revision,
+        token=token,
+        subfolder=subfolder,
+    ):
+        return "image-text-to-text"
     if task == "auto":
         if library_name == "open_clip":
             task = "zero-shot-image-classification"
@@ -383,6 +394,34 @@ def main_export(
     """
     from optimum.exporters.openvino.convert import export_from_model
     from optimum.intel.openvino.configuration import _GPTOSSQuantizationConfig
+
+    if is_bagel_model(
+        model_name_or_path,
+        cache_dir=cache_dir,
+        revision=revision,
+        token=token,
+        subfolder=subfolder,
+        local_files_only=local_files_only,
+    ):
+        if task not in {"auto", "image-text-to-text", "image-to-text"}:
+            raise ValueError(
+                "BAGEL exports use the `image-text-to-text` task because the checkpoint combines "
+                "visual understanding and image generation."
+            )
+        from optimum.intel.openvino.modeling_bagel import export_bagel
+
+        return export_bagel(
+            model_name_or_path,
+            output,
+            cache_dir=cache_dir,
+            revision=revision,
+            token=token,
+            subfolder=subfolder,
+            local_files_only=local_files_only,
+            force_download=force_download,
+            sequence_length=kwargs_shapes.get("sequence_length", kwargs_shapes.get("max_sequence_length", 4096)),
+            device=device,
+        )
 
     if framework is None:
         framework = TasksManager.determine_framework(

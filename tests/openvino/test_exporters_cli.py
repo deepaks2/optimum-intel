@@ -43,7 +43,7 @@ from utils_tests import (
     is_model_type_transformers_compatible,
 )
 
-from optimum.exporters.openvino.__main__ import main_export
+from optimum.exporters.openvino.__main__ import infer_task, main_export
 from optimum.exporters.openvino.utils import COMPLEX_CHAT_TEMPLATES
 from optimum.intel import (  # noqa
     OVFlux2KleinPipeline,
@@ -96,6 +96,7 @@ from optimum.intel.utils.import_utils import (
     is_qwen_tts_available,
     is_transformers_version,
 )
+from optimum.intel.utils.bagel import BagelConfig, is_bagel_model
 from optimum.utils.save_utils import maybe_save_preprocessors
 
 
@@ -1848,3 +1849,32 @@ class OVCLIExportTestCase(unittest.TestCase):
                     )
                     self.assertTrue((Path(tmpdir) / "openvino_markov_head_model.xml").exists())
                     self.assertEqual(sorted(path.name for path in Path(tmpdir).glob("*tokenizer*")), [])
+
+
+class BAGELConfigTestCase(unittest.TestCase):
+    def test_bagel_config_is_registered_and_task_is_inferred(self):
+        with TemporaryDirectory() as model_dir:
+            model_path = Path(model_dir)
+            (model_path / "config.json").write_text(
+                json.dumps(
+                    {
+                        "architectures": ["BagelForConditionalGeneration"],
+                        "model_type": "bagel",
+                        "visual_gen": True,
+                        "visual_und": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertTrue(is_bagel_model(model_path))
+            self.assertEqual(infer_task("auto", model_path, library_name="transformers"), "image-text-to-text")
+            self.assertIsInstance(BagelConfig.from_pretrained(model_path), BagelConfig)
+
+    def test_bagel_uses_dedicated_exporter(self):
+        with TemporaryDirectory() as model_dir, TemporaryDirectory() as output_dir:
+            model_path = Path(model_dir)
+            (model_path / "config.json").write_text(json.dumps({"model_type": "bagel"}), encoding="utf-8")
+            with patch("optimum.intel.openvino.modeling_bagel.export_bagel", return_value=[]) as export:
+                main_export(model_path, output_dir, task="auto")
+            export.assert_called_once()

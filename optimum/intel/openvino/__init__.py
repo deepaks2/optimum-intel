@@ -82,6 +82,7 @@ from .modeling import (
 )
 from .modeling_decoder import OVModelForCausalLM
 from .modeling_dflash import OVAssistantForCausalLM
+from .modeling_bagel import OVBagelForConditionalGeneration
 from .modeling_open_clip import (
     OVModelOpenCLIPForZeroShotImageClassification,
     OVModelOpenCLIPText,
